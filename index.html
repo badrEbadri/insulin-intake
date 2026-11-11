@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3f7f8">
+  <meta name="description" content="A private, local insulin and weight record tracker.">
+  <title>Insulin Intake</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <a class="brand" href="#dashboard" aria-label="Insulin Intake home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span><strong>Insulin Intake</strong><small>Personal health log</small></span>
+      </a>
+      <p class="nav-caption">WORKSPACE</p>
+      <nav id="primary-nav" class="nav-list"></nav>
+      <p class="sidebar-note"><span aria-hidden="true">●</span> Stored privately on this device</p>
+    </aside>
+    <main class="main-column">
+      <header class="topbar">
+        <div class="mobile-brand"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span> Insulin Intake</div>
+        <span class="topbar-spacer"></span>
+        <button id="install-app" class="top-action" data-action="install-pwa" type="button" hidden><span aria-hidden="true">＋</span> Install</button>
+      </header>
+      <div id="app-content" tabindex="-1" aria-live="polite"></div>
+      <nav id="mobile-nav" class="bottom-nav" aria-label="Main navigation"></nav>
+    </main>
+  </div>
+  <dialog id="record-dialog" class="record-dialog"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
