@@ -1,21 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg">
+  <!-- Inline icon references use #symbol-id from the NAV_ITEMS table in app.js. -->
+  <!-- Four-panel dashboard overview. -->
   <symbol id="dashboard" viewBox="0 0 24 24">
     <rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/>
     <rect x="13.5" y="3.5" width="7" height="5" rx="1.8"/>
     <rect x="13.5" y="11.5" width="7" height="9" rx="1.8"/>
     <rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/>
   </symbol>
+  <!-- Insulin pen and needle. -->
   <symbol id="insulin" viewBox="0 0 24 24">
     <path d="m14.8 3.5 5.7 5.7M12.7 5.6l5.7 5.7M5 18.9l11.3-11.3 3.5 3.5L8.5 22.4H5z"/>
     <path d="m4.7 19.2 3.5 3.5M3 21l-1 1M9.2 14.7l3.5 3.5M12 11.9l3.5 3.5"/>
   </symbol>
+  <!-- Bathroom scale for weight measurements. -->
   <symbol id="weight" viewBox="0 0 24 24">
     <path d="M6 4h12l2 4v12H4V8l2-4Z"/>
     <path d="M9 4a3 3 0 0 1 6 0M12 10l2 3M8 20v-2m8 2v-2"/>
   </symbol>
+  <!-- Bar chart for trends. -->
   <symbol id="charts" viewBox="0 0 24 24">
     <path d="M4 20V11h4v9M10 20V5h4v15M16 20v-7h4v7M2 20h20"/>
   </symbol>
+  <!-- Clock and return arrow for past records. -->
   <symbol id="history" viewBox="0 0 24 24">
     <path d="M3.5 12a8.5 8.5 0 1 0 2.2-5.7L3.5 8.5"/>
     <path d="M3.5 4.5v4h4M12 7v5l3 2"/>

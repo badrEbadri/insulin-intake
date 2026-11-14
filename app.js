@@ -1,12 +1,20 @@
-/* Insulin Intake, rebuilt with browser APIs and plain JavaScript. */
+/*
+ * Insulin Intake is a single-page app with no build step or server-side code.
+ * Screen markup is rendered from the in-memory `state` object; records are
+ * persisted locally in this browser. The function groups below follow that
+ * flow: state/storage, backup, date helpers, screen rendering, then actions.
+ */
 'use strict';
 
+// Stable storage keys: changing these names requires a data migration.
 const STORAGE_KEY = 'insulin-intake-vanilla-v1';
 const BACKUP_FOLDER_NAME = 'insulin-intake-backups';
 const BACKUP_FILE_PREFIX = 'insulin-intake-backup-';
 const BACKUP_LIMIT = 10;
 const BACKUP_DB_NAME = 'insulin-intake-local-backups-v1';
 const BACKUP_STORE_NAME = 'snapshots';
+
+// Navigation and chart options are shared by the desktop and mobile renderers.
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'insulin', label: 'Insulin', icon: 'insulin' },
@@ -14,7 +22,9 @@ const NAV_ITEMS = [
   { id: 'charts', label: 'Charts', icon: 'charts' },
   { id: 'history', label: 'History', icon: 'history' },
 ];
+// Reused for chart series and the dashboard's insulin-type legend.
 const TYPE_PALETTE = ['#2677d5', '#36b7a2', '#8066c9', '#e29a3b', '#d85c79', '#4c8c78'];
+// IDs become data-period values, so keep them in sync with periodBounds().
 const PERIODS = [
   { id: 'day', label: 'Day' },
   { id: 'week', label: 'Week' },
@@ -23,17 +33,22 @@ const PERIODS = [
   { id: 'year', label: 'Year' },
 ];
 
+// Cache the page elements used by multiple handlers instead of querying again.
 const app = document.querySelector('#app-content');
 const recordDialog = document.querySelector('#record-dialog');
 const toastElement = document.querySelector('#toast');
+
+// Browser-only transient values; none of these are part of the saved records.
 let toastTimer;
 let installPromptEvent = null;
 let backupDbPromise = null;
 
+/** Return a clean UI state before loading this browser's saved records. */
 function freshState() {
   return { doses: [], weights: [], view: 'dashboard', chartPeriod: 'day', weightPeriod: 'month', historyDate: dateKey(new Date()), chartSelection: null, weightSelection: null };
 }
 
+/** Load and validate the saved record arrays; ignore corrupt browser storage. */
 function loadRecords() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -46,16 +61,20 @@ function loadRecords() {
   }
 }
 
+// UI preferences and selections reset on reload; only the record arrays persist.
 const state = Object.assign(freshState(), loadRecords());
 
+/** Check the minimum shape required before a saved dose enters app state. */
 function validDose(item) {
   return item && Number.isSafeInteger(Number(item.id)) && Number(item.id) > 0 && typeof item.insulinType === 'string' && Number.isFinite(Number(item.units)) && Number(item.units) > 0 && Number.isFinite(new Date(item.takenAt).getTime());
 }
 
+/** Check the minimum shape required before a saved weight enters app state. */
 function validWeight(item) {
   return item && Number.isSafeInteger(Number(item.id)) && Number(item.id) > 0 && Number.isFinite(Number(item.kilograms)) && Number(item.kilograms) > 0 && Number.isFinite(new Date(item.measuredAt).getTime());
 }
 
+/** Persist both record types atomically as one JSON value in localStorage. */
 function persist() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ doses: state.doses, weights: state.weights }));
@@ -66,6 +85,8 @@ function persist() {
   }
 }
 
+// Automatic backups contain full copies of local records, separate from CSVs.
+/** Make an immutable, timestamped snapshot of the current records. */
 function makeBackupSnapshot() {
   const savedAt = new Date().toISOString();
   return {
@@ -76,12 +97,14 @@ function makeBackupSnapshot() {
   };
 }
 
+/** Build a stable, sortable filename for a snapshot in private file storage. */
 function backupFileName(snapshot) {
   const stamp = snapshot.savedAt.replace(/[-:.]/g, '').replace('Z', 'Z');
   const suffix = snapshot.id.slice(-7).replace(/[^a-z0-9]/gi, '');
   return `${BACKUP_FILE_PREFIX}${stamp}-${suffix}.json`;
 }
 
+/** Open (or create) the IndexedDB fallback store and reuse its pending promise. */
 async function openBackupDatabase() {
   if (backupDbPromise) return backupDbPromise;
   backupDbPromise = new Promise((resolve, reject) => {
@@ -100,6 +123,7 @@ async function openBackupDatabase() {
   return backupDbPromise;
 }
 
+/** Save one automatic snapshot in IndexedDB when private files are unavailable. */
 async function storeBackupInIndexedDb(snapshot) {
   const database = await openBackupDatabase();
   await new Promise((resolve, reject) => {
@@ -112,6 +136,7 @@ async function storeBackupInIndexedDb(snapshot) {
   });
 }
 
+/** Save one automatic snapshot in the browser's private origin storage. */
 async function storeBackupInPrivateFolder(snapshot) {
   if (typeof navigator.storage?.getDirectory !== 'function') throw new Error('Private file storage is unavailable.');
   if (typeof window.FileSystemFileHandle === 'undefined' || typeof window.FileSystemFileHandle.prototype.createWritable !== 'function') {
@@ -130,6 +155,7 @@ async function storeBackupInPrivateFolder(snapshot) {
   }
 }
 
+/** Save a backup using private files first, then IndexedDB, and keep only ten. */
 async function createAutomaticBackup() {
   const snapshot = makeBackupSnapshot();
   try {
@@ -142,6 +168,7 @@ async function createAutomaticBackup() {
   if (state.view === 'settings') void renderBackupSnapshots();
 }
 
+/** Start backup work without blocking the save form; report failures to the UI. */
 function queueAutomaticBackup() {
   void createAutomaticBackup().catch((error) => {
     console.error('Automatic backup failed:', error);
@@ -149,6 +176,7 @@ function queueAutomaticBackup() {
   });
 }
 
+/** Read valid JSON snapshots from the browser's private file-system directory. */
 async function readPrivateFolderBackups() {
   if (typeof navigator.storage?.getDirectory !== 'function') return null;
   const root = await navigator.storage.getDirectory();
@@ -173,6 +201,7 @@ async function readPrivateFolderBackups() {
   return snapshots.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 
+/** Read every automatic snapshot from IndexedDB and sort newest first. */
 async function readIndexedDbBackups() {
   const database = await openBackupDatabase();
   return new Promise((resolve, reject) => {
@@ -183,6 +212,7 @@ async function readIndexedDbBackups() {
   });
 }
 
+/** Read from both backup stores so snapshots remain visible after browser changes. */
 async function readStoredBackups() {
   const [privateResult, indexedDbResult] = await Promise.allSettled([readPrivateFolderBackups(), readIndexedDbBackups()]);
   const snapshots = [];
@@ -194,6 +224,7 @@ async function readStoredBackups() {
   return snapshots.sort((a, b) => b.savedAt.localeCompare(a.savedAt));
 }
 
+/** Delete the oldest excess snapshots from their original storage locations. */
 async function pruneAutomaticBackups(snapshots) {
   const oldestToRemove = [...snapshots].sort((a, b) => a.savedAt.localeCompare(b.savedAt)).slice(0, Math.max(0, snapshots.length - BACKUP_LIMIT));
   const privateFiles = oldestToRemove.filter((snapshot) => snapshot._backupStorage === 'private-folder');
@@ -225,16 +256,20 @@ async function pruneAutomaticBackups(snapshots) {
   }
 }
 
+/** Return at most the ten newest automatic snapshots after pruning old copies. */
 async function readAutomaticBackups() {
   const snapshots = await readStoredBackups();
   await pruneAutomaticBackups(snapshots);
   return snapshots.slice(0, BACKUP_LIMIT);
 }
 
+// Formatting, date handling, and record ordering helpers used by all screens.
+/** Escape user-entered text before inserting it into an HTML template. */
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 }
 
+/** Format a local calendar date as the stable YYYY-MM-DD storage key. */
 function dateKey(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -242,6 +277,7 @@ function dateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
+/** Parse a YYYY-MM-DD key as local time and reject impossible dates. */
 function parseDateKey(value) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return null;
   const [year, month, day] = value.split('-').map(Number);
@@ -249,6 +285,7 @@ function parseDateKey(value) {
   return result.getFullYear() === year && result.getMonth() === month - 1 && result.getDate() === day ? result : null;
 }
 
+/** Combine form date/time fields as a local Date, or return null if invalid. */
 function localDateTime(dateValue, timeValue) {
   const date = parseDateKey(dateValue);
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(timeValue || '');
@@ -257,17 +294,20 @@ function localDateTime(dateValue, timeValue) {
   return date;
 }
 
+/** Convert an ISO timestamp back into local date and time form values. */
 function dateParts(iso) {
   const date = new Date(iso);
   return { date: dateKey(date), time: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}` };
 }
 
+/** Return local midnight boundaries for a single calendar day. */
 function dayBounds(date) {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
   return { start, end };
 }
 
+/** Return the selected chart period's local-time interval, ending tomorrow. */
 function periodBounds(period, now = new Date()) {
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -278,31 +318,38 @@ function periodBounds(period, now = new Date()) {
   return { start, end };
 }
 
+/** Test a timestamp against a half-open interval [start, end). */
 function inRange(iso, start, end) {
   const time = new Date(iso).getTime();
   return time >= start.getTime() && time < end.getTime();
 }
 
+/** Copy and sort doses newest first without mutating the stored array. */
 function sortedDoses(doses = state.doses) {
   return [...doses].sort((a, b) => b.takenAt.localeCompare(a.takenAt) || b.id - a.id);
 }
 
+/** Copy and sort weight records newest first without mutating stored state. */
 function sortedWeights(weights = state.weights) {
   return [...weights].sort((a, b) => b.measuredAt.localeCompare(a.measuredAt) || b.id - a.id);
 }
 
+/** Format a numeric value for the user's locale with a maximum precision. */
 function formatNumber(value, digits = 2) {
   return Number(value).toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
+/** Format a calendar date using the browser's locale. */
 function formatDay(date, options = { weekday: 'short', month: 'short', day: 'numeric' }) {
   return date.toLocaleDateString([], options);
 }
 
+/** Format an ISO timestamp as a short, localized time. */
 function formatTime(iso) {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+/** Show a temporary status message and replace any message already on screen. */
 function showToast(message) {
   toastElement.textContent = message;
   toastElement.classList.add('show');
@@ -310,6 +357,7 @@ function showToast(message) {
   toastTimer = setTimeout(() => toastElement.classList.remove('show'), 3000);
 }
 
+/** Resolve a chart tap to its nearest data mark within a finger-sized radius. */
 function nearestChartMark(event, chart) {
   let nearest = null;
   let nearestDistance = 73;
@@ -326,16 +374,19 @@ function nearestChartMark(event, chart) {
   return nearest;
 }
 
+/** Render one navigation button; both nav bars share the same icon sprite. */
 function navButton(item, current, mobile = false) {
   const selected = item.id === current;
   return `<button class="nav-item" type="button" data-nav="${item.id}" aria-current="${selected ? 'page' : 'false'}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="./icons/ui.svg#${item.icon}"></use></svg></span><span>${item.label}</span></button>`;
 }
 
+/** Rebuild the desktop sidebar and fixed mobile navigation from NAV_ITEMS. */
 function renderNav() {
   document.querySelector('#primary-nav').innerHTML = NAV_ITEMS.map((item) => navButton(item, state.view)).join('');
   document.querySelector('#mobile-nav').innerHTML = NAV_ITEMS.map((item) => navButton(item, state.view, true)).join('');
 }
 
+/** Render a dose log row with escaped notes and edit/delete action metadata. */
 function doseRow(dose) {
   return `<div class="entry-row">
     <span class="entry-rail" aria-hidden="true"></span>
@@ -345,6 +396,7 @@ function doseRow(dose) {
   </div>`;
 }
 
+/** Render a weight log row with its local date and row action buttons. */
 function weightRow(record) {
   const date = new Date(record.measuredAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   return `<div class="entry-row">
@@ -353,6 +405,7 @@ function weightRow(record) {
   </div>`;
 }
 
+/** Draw a decorative inline SVG trend; missing weight days use carry-forward values. */
 function sparkline(values, className = '') {
   if (!values.length || values.every((value) => value === 0)) return `<svg class="mini-chart ${className}" viewBox="0 0 180 38" aria-hidden="true"><path class="spark-fill" d="M0,34 L180,34 L180,38 L0,38 Z"/><path class="spark" d="M2 30 H178"/></svg>`;
   const min = Math.min(...values);
@@ -368,6 +421,7 @@ function sparkline(values, className = '') {
   return `<svg class="mini-chart ${className}" viewBox="0 0 180 38" aria-hidden="true"><path class="spark-fill" d="${fill}"/><path class="spark" d="${path}"/></svg>`;
 }
 
+/** Return daily insulin totals from six days ago through the current day. */
 function lastSevenDoses() {
   const today = new Date();
   const values = [];
@@ -379,6 +433,7 @@ function lastSevenDoses() {
   return values;
 }
 
+/** Return one weight value per day for the dashboard's small trend line. */
 function lastSevenWeights() {
   const today = new Date();
   const values = [];
@@ -394,6 +449,7 @@ function lastSevenWeights() {
   return values.map((value) => value === null ? first : value);
 }
 
+/** Build the landing screen from today's records, recent doses, and latest weight. */
 function renderDashboard() {
   const today = new Date();
   const { start, end } = dayBounds(today);
@@ -430,6 +486,7 @@ function renderDashboard() {
   </section>`;
 }
 
+/** Build the complete dose log, ordered newest first. */
 function renderInsulin() {
   const doses = sortedDoses();
   const total = doses.reduce((sum, dose) => sum + Number(dose.units), 0);
@@ -439,10 +496,12 @@ function renderInsulin() {
   </section>`;
 }
 
+/** Render the shared Day/Week/Month/6 mo/Year segmented control. */
 function periodSelector(selected, actionName) {
   return `<div class="pill-row" role="group" aria-label="Select a date range">${PERIODS.map((period) => `<button type="button" class="period-pill" data-action="${actionName}" data-period="${period.id}" aria-pressed="${selected === period.id}">${period.label}</button>`).join('')}</div>`;
 }
 
+/** Build weight summaries and the full measurement list for the chosen period. */
 function renderWeight() {
   const weights = sortedWeights();
   const selectedPeriod = state.weightPeriod;
@@ -460,10 +519,12 @@ function renderWeight() {
   </section>`;
 }
 
+/** Create escaped SVG label text for chart axes and dates. */
 function svgText(x, y, text, anchor = 'middle', size = 9) {
   return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${size}">${escapeHtml(text)}</text>`;
 }
 
+/** Build the insulin histogram, stacking daily totals by type outside day view. */
 function renderInsulinChart(period, doses, bounds) {
   const width = 700;
   const height = 220;
@@ -557,6 +618,7 @@ function renderInsulinChart(period, doses, bounds) {
   return `<section class="card chart-card"><div class="chart-summary"><div><span class="eyebrow">Period total</span><p class="chart-total">${total.toFixed(1)} <small style="font-size:12px;color:var(--muted)">U</small></p></div><p class="chart-footnote">Average ${average.toFixed(1)} U per calendar day</p></div><div class="chart-scroll"><svg class="${chartClass}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Insulin entries chart">${grid}${marks}${labels}${noData}</svg></div><p class="chart-detail">${escapeHtml(detail)}</p><div class="legend">${legend || `<span class="legend-item">No insulin types recorded</span>`}</div></section>`;
 }
 
+/** Build the weight trend chart; plotted points always correspond to saved entries. */
 function renderWeightChart(records, bounds) {
   const width = 700;
   const height = 218;
@@ -600,6 +662,7 @@ function renderWeightChart(records, bounds) {
   return `<section class="card chart-card"><div class="weight-chart-summary"><div><span class="eyebrow">Latest in range</span><strong>${latest ? `${Number(latest.kilograms).toFixed(1)} kg` : '—'}</strong><span class="subhead">${latest ? formatDay(new Date(latest.measuredAt), { month: 'short', day: 'numeric' }) : 'No measurements'}</span></div><div><span class="eyebrow">Change</span><strong>${change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}`}</strong><span class="subhead">kg, first to last</span></div></div><div class="chart-scroll"><svg class="${chartClass}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Weight measurements chart">${grid}${lines}${points}${svgText(left, height - 8, startLabel, 'start', 8)}${svgText(width - right, height - 8, endLabel, 'end', 8)}${records.length ? '' : `<text x="${width / 2}" y="${top + plotHeight / 2}" text-anchor="middle" fill="#71818c" font-size="11">No measurements recorded in this range</text>`}</svg></div><p class="chart-detail">${escapeHtml(detail)}</p><p class="section-copy" style="margin:0;text-align:center">Points show recorded measurements only. No values are interpolated.</p></section>`;
 }
 
+/** Assemble date-range controls and both record-only chart cards. */
 function renderCharts() {
   const bounds = periodBounds(state.chartPeriod);
   const doses = sortedDoses(state.doses.filter((dose) => inRange(dose.takenAt, bounds.start, bounds.end)));
@@ -614,6 +677,7 @@ function renderCharts() {
   </section>`;
 }
 
+/** Build one day's history with date navigation and separate record lists. */
 function renderHistory() {
   const date = parseDateKey(state.historyDate) || new Date();
   const { start, end } = dayBounds(date);
@@ -628,6 +692,7 @@ function renderHistory() {
   </section>`;
 }
 
+/** Build installation, reminder, backup, restore, and privacy settings content. */
 function renderSettings() {
   return `<section class="page"><div><p class="kicker">PREFERENCES & DATA</p><h1>Settings</h1><p class="subhead">Manage your local records and backups.</p></div>
     <section class="card setting-card"><div><h2 class="setting-title">Install on your phone</h2><p class="setting-copy">Add Insulin Intake to your Home Screen for an app-style window and offline access after it has loaded once.</p></div><div class="privacy-note"><strong>iPhone:</strong> open this site in Safari, tap Share, choose <em>Add to Home Screen</em>, then tap Add.<br /><strong>Android:</strong> open this site in Chrome, tap the menu, then choose <em>Install app</em> or <em>Add to Home screen</em>.<br />Installation requires a secure HTTPS website. Localhost is supported for development.</div><div><button class="primary-button" data-action="install-pwa">Install app</button></div></section>
@@ -638,17 +703,19 @@ function renderSettings() {
   </section>`;
 }
 
+/** Re-render the active page and keep the selected/latest chart mark in view. */
 function render() {
   renderNav();
   const pages = { dashboard: renderDashboard, insulin: renderInsulin, weight: renderWeight, charts: renderCharts, history: renderHistory, settings: renderSettings };
   app.innerHTML = (pages[state.view] || renderDashboard)();
   document.title = `${state.view === 'dashboard' ? 'Dashboard' : state.view.charAt(0).toUpperCase() + state.view.slice(1)} · Insulin Intake`;
   if (state.view === 'charts') {
+    // A wider phone chart scrolls horizontally; center the selected or newest mark.
     requestAnimationFrame(() => {
       document.querySelectorAll('.chart-scroll').forEach((scroll) => {
         const chart = scroll.querySelector('.chart-svg');
         if (!chart) return;
-        const isWeight = chart?.classList.contains('weight-chart');
+        const isWeight = chart.classList.contains('weight-chart');
         let mark = null;
         if (isWeight && state.weightSelection !== null) {
           mark = chart.querySelector(`[data-chart-weight="${state.weightSelection}"]`);
@@ -670,6 +737,7 @@ function render() {
   if (state.view === 'settings') void renderBackupSnapshots();
 }
 
+/** Populate the settings backup list after its asynchronous storage read. */
 async function renderBackupSnapshots() {
   const list = document.querySelector('#automatic-backups-list');
   if (!list) return;
@@ -694,6 +762,7 @@ async function renderBackupSnapshots() {
   }
 }
 
+/** Change screens, keep the URL hash in sync, and return focus to app content. */
 function setView(view) {
   state.view = view;
   state.chartSelection = null;
@@ -704,6 +773,7 @@ function setView(view) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+/** Render and open the shared create/edit form, then focus its first value field. */
 function openRecordDialog(kind, id = null, dateOverride = null) {
   const isDose = kind === 'dose';
   const records = isDose ? state.doses : state.weights;
@@ -731,14 +801,17 @@ function openRecordDialog(kind, id = null, dateOverride = null) {
   setTimeout(() => focus?.focus(), 30);
 }
 
+/** Close the record dialog with a fallback for browsers without dialog methods. */
 function closeDialog() {
   if (recordDialog.open && typeof recordDialog.close === 'function') recordDialog.close();
   else recordDialog.removeAttribute('open');
 }
 
-// Telegram automatic full-history backup (frontend-only).
-// Configure BOT_TOKEN and CHAT_ID in telegram-config.js.
-// The token is exposed in the frontend by design; use only for personal testing.
+/**
+ * Send the full CSV to the configured Telegram chat after a new record is saved.
+ * This is optional frontend-only behavior; the token is visible to site visitors,
+ * and the no-cors request cannot confirm Telegram accepted the file.
+ */
 async function sendTelegramFullBackup() {
   const config = window.TELEGRAM_BACKUP_CONFIG || {};
   if (!config.botToken || !config.chatId ||
@@ -775,6 +848,7 @@ async function sendTelegramFullBackup() {
   }
 }
 
+/** Validate a form, update the matching collection, persist, and refresh UI. */
 function saveRecord(event) {
   event.preventDefault();
   const form = event.target;
@@ -827,10 +901,12 @@ function saveRecord(event) {
   }
 }
 
+/** Return the next positive integer ID within one record collection. */
 function nextId(records) {
   return records.reduce((max, record) => Math.max(max, Number(record.id) || 0), 0) + 1;
 }
 
+/** Confirm deletion, remove a record, and restore it if local persistence fails. */
 function deleteRecord(kind, id) {
   const isDose = kind === 'dose';
   const record = (isDose ? state.doses : state.weights).find((item) => item.id === id);
@@ -849,10 +925,12 @@ function deleteRecord(kind, id) {
   showToast(isDose ? 'Dose deleted.' : 'Measurement deleted.');
 }
 
+/** Escape one CSV cell according to the double-quote CSV convention. */
 function csvQuote(value) {
   return `"${String(value ?? '').replaceAll('"', '""')}"`;
 }
 
+/** Serialize both record types into the app's documented seven-column CSV format. */
 function recordsToCsv(doses, weights) {
   const rows = [['record_type', 'id', 'timestamp', 'insulin_type', 'insulin_units', 'weight_kg', 'notes']];
   doses.forEach((dose) => rows.push(['insulin', dose.id, dose.takenAt, dose.insulinType, dose.units, '', dose.notes || '']));
@@ -860,6 +938,7 @@ function recordsToCsv(doses, weights) {
   return `${rows.map((row) => row.map(csvQuote).join(',')).join('\r\n')}\r\n`;
 }
 
+/** Share or download a CSV file, preferring the device's native share sheet. */
 async function exportCsvFile(csv, filename) {
   const file = new File([csv], filename, { type: 'text/csv;charset=utf-8' });
   try {
@@ -884,11 +963,13 @@ async function exportCsvFile(csv, filename) {
   showToast('CSV backup downloaded. Save it in Files if your browser asks.');
 }
 
+/** Export all current records as one dated CSV backup. */
 function exportCsv() {
   const csv = recordsToCsv(state.doses, state.weights);
   void exportCsvFile(csv, `insulin-intake-backup-${dateKey(new Date())}.csv`);
 }
 
+/** Read and export one selected automatic snapshot as a CSV file. */
 async function exportSnapshot(id) {
   try {
     const snapshots = await readAutomaticBackups();
@@ -906,6 +987,7 @@ async function exportSnapshot(id) {
   }
 }
 
+/** Parse and validate the complete app CSV before any records are replaced. */
 function parseCsv(text) {
   const input = text.replace(/^\uFEFF/, '');
   const rows = [];
@@ -959,6 +1041,7 @@ function parseCsv(text) {
   return { doses, weights };
 }
 
+/** Read a CSV backup, ask before replacement, then persist and redraw records. */
 async function restoreCsv(file) {
   try {
     const backup = parseCsv(await file.text());
@@ -984,6 +1067,7 @@ async function restoreCsv(file) {
   }
 }
 
+// One delegated click handler routes navigation, forms, chart taps, and row actions.
 document.addEventListener('click', (event) => {
   const directTarget = event.target.closest('[data-nav], [data-action]');
   const chart = event.target.closest('.chart-svg');
@@ -1026,10 +1110,12 @@ document.addEventListener('click', (event) => {
   }
 });
 
+// Keep form submission handling centralized because the record form is recreated.
 document.addEventListener('submit', (event) => {
   if (event.target instanceof HTMLFormElement && event.target.id === 'record-form') saveRecord(event);
 });
 
+// Handle form-dependent fields and date/file controls after their values change.
 document.addEventListener('change', (event) => {
   if (event.target.id === 'insulin-type') {
     const wrap = document.querySelector('#custom-type-wrap');
@@ -1049,6 +1135,7 @@ recordDialog.addEventListener('click', (event) => {
   if (event.target === recordDialog) closeDialog();
 });
 
+// Refresh if another tab on this origin changes the same localStorage record key.
 window.addEventListener('storage', (event) => {
   if (event.key === STORAGE_KEY) {
     const latest = loadRecords();
@@ -1058,13 +1145,16 @@ window.addEventListener('storage', (event) => {
   }
 });
 
+// Restore a supported screen from the URL so links and browser history reopen it.
 if (location.hash.slice(1) in { dashboard: 1, insulin: 1, weight: 1, charts: 1, history: 1, settings: 1 }) state.view = location.hash.slice(1);
 render();
 
+/** Detect standalone launch mode on browsers that expose either signal. */
 function isRunningStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 }
 
+/** Use the browser install prompt when available, or explain iPhone steps. */
 async function installPwa() {
   if (isRunningStandalone()) {
     showToast('Insulin Intake is already installed on this device.');
@@ -1081,6 +1171,7 @@ async function installPwa() {
   showToast(result.outcome === 'accepted' ? 'Installation started.' : 'You can install it later from your browser menu.');
 }
 
+// Chromium fires this event when its native install prompt can be offered.
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   installPromptEvent = event;
@@ -1088,6 +1179,7 @@ window.addEventListener('beforeinstallprompt', (event) => {
   if (installButton && !isRunningStandalone()) installButton.hidden = false;
 });
 
+// Clear the saved install prompt after the browser confirms installation.
 window.addEventListener('appinstalled', () => {
   installPromptEvent = null;
   const installButton = document.querySelector('#install-app');
@@ -1095,6 +1187,7 @@ window.addEventListener('appinstalled', () => {
   showToast('Insulin Intake was added to your Home Screen.');
 });
 
+// Service workers require HTTP(S); file:// use should fail quietly and clearly.
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register(new URL('./service-worker.js', window.location.href), { scope: './' })

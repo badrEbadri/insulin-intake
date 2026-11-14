@@ -1,3 +1,4 @@
+/* Design tokens: change these values to update the app's shared visual theme. */
 :root {
   color-scheme: light;
   --ink: #142b3a;
@@ -19,15 +20,18 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Consistent sizing, focus visibility, and native-control typography. */
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--canvas); }
 button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(38, 119, 213, .28); outline-offset: 2px; }
+/* Mobile-first shell: the sidebar is hidden until the desktop breakpoint. */
 .app-shell { min-height: 100vh; }
 
 .sidebar { display: none; }
 .main-column { min-height: 100vh; }
+/* Sticky mobile header and CSS-drawn brand mark shared by both layouts. */
 .topbar { position: sticky; z-index: 10; top: 0; height: 62px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid rgba(230, 236, 239, .8); background: rgba(243, 247, 248, .92); backdrop-filter: blur(14px); }
 .mobile-brand { display: flex; align-items: center; gap: 9px; font: 800 14px 'Manrope', sans-serif; letter-spacing: -.35px; }
 .brand-mark { width: 30px; height: 30px; position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 3px; border-radius: 10px; background: var(--blue-dark); transform: rotate(-4deg); flex: none; }
@@ -39,7 +43,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .top-action { min-height: 38px; border: 0; border-radius: 12px; padding: 0 14px; color: #fff; background: var(--blue); font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 5px 12px rgba(38, 119, 213, .17); }
 .top-action span { margin-right: 4px; font-size: 18px; vertical-align: -1px; }
 .avatar { width: 34px; height: 34px; border: 1px solid #d9e5e9; border-radius: 50%; color: var(--blue-dark); background: #e5f0f4; font-size: 10px; font-weight: 800; cursor: pointer; }
+/* Main content is centered on larger screens and clears the fixed phone nav. */
 #app-content { width: min(100%, 1100px); margin: 0 auto; padding: 18px 18px 100px; }
+/* Shared page headings, cards, and small text styles. */
 .page { display: grid; gap: 16px; animation: appear .18s ease-out; }
 @keyframes appear { from { opacity: .65; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
@@ -54,6 +60,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
 .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .card-heading .subhead { margin: 0; }
 .text-link { border: 0; padding: 3px; color: var(--blue); background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; }
+/* Dashboard's prominent recorded total and quick-entry actions. */
 .hero { min-height: 170px; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; border-radius: 22px; padding: 22px; color: white; background: linear-gradient(117deg, #15599f 0%, #1767af 57%, #1d79b5 100%); box-shadow: 0 12px 26px rgba(21, 89, 159, .17); }
 .hero::after { content: ''; position: absolute; width: 210px; height: 210px; right: -65px; top: -108px; border-radius: 50%; background: rgba(85, 202, 183, .25); }
 .hero::before { content: ''; position: absolute; width: 120px; height: 120px; right: 100px; bottom: -103px; border-radius: 50%; background: rgba(255,255,255,.055); }
@@ -74,6 +81,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
 .trend-card .kicker { margin-bottom: 9px; font-size: 8px; }
 .trend-value { margin-bottom: 2px; font: 800 19px 'Manrope', sans-serif; letter-spacing: -.4px; }
 .trend-caption { margin: 0; color: var(--muted); font-size: 9px; }
+/* Small dashboard trends, insulin-type totals, and empty states. */
 .mini-chart { width: 100%; height: 37px; display: block; margin: 5px 0 0; overflow: visible; }
 .mini-chart .spark { fill: none; stroke: var(--blue); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .mini-chart .spark-fill { fill: rgba(38, 119, 213, .09); }
@@ -87,6 +95,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
 .latest-weight { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .latest-value { margin: 5px 0 2px; font: 800 22px 'Manrope', sans-serif; letter-spacing: -.6px; }
 .weight-badge { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; color: var(--purple); background: #f0edfa; font-size: 12px; font-weight: 800; }
+/* Reusable dose and weight rows used by dashboards and record lists. */
 .entry-list { display: grid; }
 .entry-row { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 12px 0; border-bottom: 1px solid var(--line); }
 .entry-row:last-child { border-bottom: 0; }
@@ -99,6 +108,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
 .row-action { border: 0; padding: 7px 5px; color: var(--blue); background: transparent; font-size: 10px; font-weight: 700; cursor: pointer; }
 .row-action.delete { color: var(--danger); }
 .disclaimer { margin: 0; padding: 1px 3px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+/* Shared actions, date-range pills, weight summaries, and date picker. */
 .primary-button, .secondary-button, .danger-button { min-height: 40px; border: 0; border-radius: 11px; padding: 0 14px; background: var(--blue); color: #fff; font-size: 11px; font-weight: 700; cursor: pointer; }
 .secondary-button { border: 1px solid var(--line); color: var(--ink); background: #f7f9fa; }
 .danger-button { color: var(--danger); background: #fff0f0; }
@@ -120,6 +130,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
 .date-select input { max-width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 6px 8px; color: var(--ink); background: #fff; font-size: 12px; }
 .section-stack { display: grid; gap: 10px; }
 .section-copy { margin: -6px 0 2px; color: var(--muted); font-size: 10px; line-height: 1.5; }
+/* SVG charts: the inner scroller keeps marks larger on phones and allows swiping. */
 .chart-card { overflow: hidden; }
 .chart-summary { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 0 4px 8px; }
 .chart-summary .eyebrow { color: var(--muted); }
@@ -145,6 +156,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
 .weight-chart .point.selected { r: 11; stroke-width: 3; }
 .weight-chart .trendline { stroke: var(--purple); stroke-width: 2; opacity: .7; }
 .weight-chart .point:hover { r: 7; }
+/* Settings cards, backup list rows, privacy copy, and navigation surfaces. */
 .setting-card { display: grid; gap: 12px; }
 .setting-title { margin: 0 0 5px; font: 700 13px 'Manrope', sans-serif; }
 .setting-copy { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
@@ -163,6 +175,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
 .nav-icon svg { width: 21px; height: 21px; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .sidebar .nav-item { flex-direction: row; justify-content: flex-start; gap: 11px; width: 100%; min-height: 42px; padding: 0 11px; font-size: 12px; }
 .sidebar .nav-icon { width: 20px; height: 20px; }
+/* Native dialog shell and status toast used across record actions. */
 .record-dialog { width: min(510px, calc(100vw - 28px)); max-height: min(90vh, 780px); overflow: auto; border: 0; border-radius: 21px; padding: 0; color: var(--ink); background: var(--canvas); box-shadow: 0 24px 90px rgba(8, 28, 40, .28); }
 .record-dialog::backdrop { background: rgba(12, 34, 46, .44); backdrop-filter: blur(3px); }
 .dialog-inner { padding: 20px; }
@@ -181,10 +194,12 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
 .toast.show { transform: translateY(0); opacity: 1; }
 .file-input { display: none; }
 
+/* On phones, data charts use a larger canvas than the visible card width. */
 @media (max-width: 699px) {
   .chart-svg.has-marks { min-width: 720px; }
 }
 
+/* Desktop switches to a fixed sidebar and wider, two-column dashboards. */
 @media (min-width: 700px) {
   .app-shell { display: grid; grid-template-columns: 226px minmax(0, 1fr); }
   .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 23px 15px 16px; border-right: 1px solid var(--line); background: #f7f9fa; }
@@ -217,6 +232,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
   .toast { bottom: 22px; }
 }
 
+/* Wider desktop spacing and dashboard columns. */
 @media (min-width: 1020px) {
   .app-shell { grid-template-columns: 244px minmax(0, 1fr); }
   #app-content { padding-top: 28px; }
@@ -225,6 +241,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
   .section-stack { gap: 12px; }
 }
 
+/* Small-phone spacing adjustments for narrow screens. */
 @media (max-width: 390px) {
   #app-content { padding-right: 13px; padding-left: 13px; }
   .topbar { padding-right: 13px; padding-left: 13px; }
@@ -236,6 +253,7 @@ h3 { margin: 0; font: 700 13px/1.3 'Manrope', sans-serif; }
   .date-arrow { width: 33px; }
 }
 
+/* Respect the operating system's reduced-motion preference. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

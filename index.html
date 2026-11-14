@@ -1,22 +1,29 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <!-- Document metadata: viewport behavior, browser theme, and search description. -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f3f7f8">
   <meta name="description" content="A private, local insulin and weight record tracker.">
   <title>Insulin Intake</title>
+
+  <!-- PWA manifest plus browser, iPhone Home Screen, and older favicon assets. -->
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
   <link rel="icon" href="./icons/icon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="./icons/icon-180.png" sizes="180x180">
+
+  <!-- App styling and optional hosted font family with system-font fallbacks. -->
   <link rel="stylesheet" href="./styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Shared app shell: desktop sidebar, main content, and mobile navigation. -->
   <div class="app-shell">
+    <!-- Desktop navigation; app.js fills the nav list from NAV_ITEMS. -->
     <aside class="sidebar" aria-label="Main navigation">
       <a class="brand" href="#dashboard" aria-label="Insulin Intake home">
         <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
@@ -26,19 +33,29 @@
       <nav id="primary-nav" class="nav-list"></nav>
       <p class="sidebar-note"><span aria-hidden="true">●</span> Stored privately on this device</p>
     </aside>
+
+    <!-- Screen content is replaced by render(); the header stays persistent. -->
     <main class="main-column">
       <header class="topbar">
         <div class="mobile-brand"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span> Insulin Intake</div>
         <span class="topbar-spacer"></span>
         <button id="install-app" class="top-action" data-action="install-pwa" type="button" hidden><span aria-hidden="true">＋</span> Install</button>
       </header>
+      <!-- Live region announces screen changes to assistive technology. -->
       <div id="app-content" tabindex="-1" aria-live="polite"></div>
+      <!-- Mobile navigation mirrors the desktop links at the viewport bottom. -->
       <nav id="mobile-nav" class="bottom-nav" aria-label="Main navigation"></nav>
     </main>
   </div>
+
+  <!-- Reused for both insulin and weight create/edit forms. -->
   <dialog id="record-dialog" class="record-dialog"></dialog>
+  <!-- Temporary confirmation and error messages are written by showToast(). -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Load optional user config before app.js reads Telegram backup settings. -->
   <script src="./telegram-config.js" defer></script>
+  <!-- Main renderer, local storage, chart, backup, and interaction logic. -->
   <script src="./app.js" defer></script>
 </body>
 </html>
