@@ -1,4 +1,4 @@
-const CACHE_NAME = 'insulin-intake-static-v2';
+const CACHE_NAME = 'insulin-intake-static-v3';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,7 +6,8 @@ const APP_SHELL = [
   './app.js',
   './telegram-config.js',
   './manifest.webmanifest',
-  './icons/icon.svg'
+  './icons/icon.svg',
+  './icons/ui.svg'
 ];
 
 self.addEventListener('install', (event) => {

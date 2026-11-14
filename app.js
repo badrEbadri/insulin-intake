@@ -8,11 +8,11 @@ const BACKUP_LIMIT = 10;
 const BACKUP_DB_NAME = 'insulin-intake-local-backups-v1';
 const BACKUP_STORE_NAME = 'snapshots';
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '⌂' },
-  { id: 'insulin', label: 'Insulin', icon: '◉' },
-  { id: 'weight', label: 'Weight', icon: '◌' },
-  { id: 'charts', label: 'Charts', icon: '▥' },
-  { id: 'history', label: 'History', icon: '▤' },
+  { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { id: 'insulin', label: 'Insulin', icon: 'insulin' },
+  { id: 'weight', label: 'Weight', icon: 'weight' },
+  { id: 'charts', label: 'Charts', icon: 'charts' },
+  { id: 'history', label: 'History', icon: 'history' },
 ];
 const TYPE_PALETTE = ['#2677d5', '#36b7a2', '#8066c9', '#e29a3b', '#d85c79', '#4c8c78'];
 const PERIODS = [
@@ -312,7 +312,7 @@ function showToast(message) {
 
 function navButton(item, current, mobile = false) {
   const selected = item.id === current;
-  return `<button class="nav-item" type="button" data-nav="${item.id}" aria-current="${selected ? 'page' : 'false'}"><span class="nav-icon" aria-hidden="true">${item.icon}</span><span>${item.label}</span></button>`;
+  return `<button class="nav-item" type="button" data-nav="${item.id}" aria-current="${selected ? 'page' : 'false'}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="./icons/ui.svg#${item.icon}"></use></svg></span><span>${item.label}</span></button>`;
 }
 
 function renderNav() {
