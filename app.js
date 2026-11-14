@@ -689,6 +689,45 @@ function closeDialog() {
   else recordDialog.removeAttribute('open');
 }
 
+// Telegram automatic full-history backup (frontend-only).
+// Configure BOT_TOKEN and CHAT_ID in telegram-config.js.
+// The token is exposed in the frontend by design; use only for personal testing.
+async function sendTelegramFullBackup() {
+  const config = window.TELEGRAM_BACKUP_CONFIG || {};
+  if (!config.botToken || !config.chatId ||
+      config.botToken === 'PASTE_BOT_TOKEN_HERE' ||
+      config.chatId === 'PASTE_CHAT_ID_HERE') {
+    console.warn('Telegram backup is not configured yet.');
+    return;
+  }
+
+  try {
+    const csv = recordsToCsv(state.doses, state.weights);
+    const filename = `insulin-intake-backup-${dateKey(new Date())}.csv`;
+    const file = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const form = new FormData();
+    form.append('chat_id', String(config.chatId));
+    form.append('document', file, filename);
+    form.append('disable_notification', 'true');
+    form.append(
+      'caption',
+      `Insulin Intake full backup · ${state.doses.length} insulin records · ${state.weights.length} weight records`
+    );
+
+    // no-cors allows the browser to submit the multipart request without
+    // needing Telegram to grant CORS access. The response is opaque, so
+    // the app cannot verify Telegram's result.
+    await fetch(`https://api.telegram.org/bot${config.botToken}/sendDocument`, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: form
+    });
+  } catch (error) {
+    // Keep this silent: local saving must never depend on Telegram availability.
+    console.warn('Telegram backup attempt failed:', error);
+  }
+}
+
 function saveRecord(event) {
   event.preventDefault();
   const form = event.target;
@@ -734,6 +773,7 @@ function saveRecord(event) {
   }
   if (persist()) {
     queueAutomaticBackup();
+    if (!id) void sendTelegramFullBackup();
     closeDialog();
     render();
     showToast(kind === 'dose' ? (id ? 'Dose updated.' : 'Dose saved.') : (id ? 'Measurement updated.' : 'Measurement saved.'));
