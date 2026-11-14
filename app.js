@@ -310,6 +310,22 @@ function showToast(message) {
   toastTimer = setTimeout(() => toastElement.classList.remove('show'), 3000);
 }
 
+function nearestChartMark(event, chart) {
+  let nearest = null;
+  let nearestDistance = 29;
+  chart.querySelectorAll('[data-chart-dose], [data-chart-day], [data-chart-weight]').forEach((mark) => {
+    const rect = mark.getBoundingClientRect();
+    const dx = Math.max(rect.left - event.clientX, 0, event.clientX - rect.right);
+    const dy = Math.max(rect.top - event.clientY, 0, event.clientY - rect.bottom);
+    const distance = Math.hypot(dx, dy);
+    if (distance < nearestDistance) {
+      nearest = mark;
+      nearestDistance = distance;
+    }
+  });
+  return nearest;
+}
+
 function navButton(item, current, mobile = false) {
   const selected = item.id === current;
   return `<button class="nav-item" type="button" data-nav="${item.id}" aria-current="${selected ? 'page' : 'false'}"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="./icons/ui.svg#${item.icon}"></use></svg></span><span>${item.label}</span></button>`;
@@ -525,7 +541,7 @@ function renderInsulinChart(period, doses, bounds) {
   }
   const noData = doses.length ? '' : `<text x="${width / 2}" y="${top + plotHeight / 2}" text-anchor="middle" fill="#71818c" font-size="11">No insulin entries in this range</text>`;
   const selected = state.chartSelection;
-  let detail = period === 'day' ? 'Select a bar to see an exact dose and time.' : 'Select a day to see its total.';
+  let detail = period === 'day' ? 'Tap near a bar to see its exact dose and time.' : 'Tap near a bar to see that day’s total.';
   if (selected?.type === 'dose') {
     const dose = doses.find((item) => item.id === selected.id);
     if (dose) detail = `${dose.insulinType} · ${Number(dose.units).toFixed(2)} U · ${new Date(dose.takenAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`;
@@ -573,7 +589,7 @@ function renderWeightChart(records, bounds) {
   const selected = sorted.find((record) => record.id === state.weightSelection);
   const latest = sorted.at(-1);
   const change = sorted.length > 1 ? Number(sorted.at(-1).kilograms) - Number(sorted[0].kilograms) : null;
-  const detail = selected ? `${Number(selected.kilograms).toFixed(2)} kg · ${new Date(selected.measuredAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : records.length ? 'Select a point to see the exact measurement.' : 'No measurements in this period; blank days remain blank.';
+  const detail = selected ? `${Number(selected.kilograms).toFixed(2)} kg · ${new Date(selected.measuredAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : records.length ? 'Tap near a point to see the exact measurement.' : 'No measurements in this period; blank days remain blank.';
   return `<section class="card chart-card"><div class="weight-chart-summary"><div><span class="eyebrow">Latest in range</span><strong>${latest ? `${Number(latest.kilograms).toFixed(1)} kg` : '—'}</strong><span class="subhead">${latest ? formatDay(new Date(latest.measuredAt), { month: 'short', day: 'numeric' }) : 'No measurements'}</span></div><div><span class="eyebrow">Change</span><strong>${change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}`}</strong><span class="subhead">kg, first to last</span></div></div><svg class="chart-svg weight-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Weight measurements chart">${grid}${lines}${points}${svgText(left, height - 8, startLabel, 'start', 8)}${svgText(width - right, height - 8, endLabel, 'end', 8)}${records.length ? '' : `<text x="${width / 2}" y="${top + plotHeight / 2}" text-anchor="middle" fill="#71818c" font-size="11">No measurements recorded in this range</text>`}</svg><p class="chart-detail">${escapeHtml(detail)}</p><p class="section-copy" style="margin:0;text-align:center">Points show recorded measurements only. No values are interpolated.</p></section>`;
 }
 
@@ -938,7 +954,9 @@ async function restoreCsv(file) {
 }
 
 document.addEventListener('click', (event) => {
-  const target = event.target.closest('[data-nav], [data-action], [data-chart-dose], [data-chart-day], [data-chart-weight]');
+  const directTarget = event.target.closest('[data-nav], [data-action], [data-chart-dose], [data-chart-day], [data-chart-weight]');
+  const chart = event.target.closest('.chart-svg');
+  const target = directTarget || (chart ? nearestChartMark(event, chart) : null);
   if (!target) return;
   if (target.dataset.nav) {
     event.preventDefault();
