@@ -312,7 +312,7 @@ function showToast(message) {
 
 function nearestChartMark(event, chart) {
   let nearest = null;
-  let nearestDistance = 29;
+  let nearestDistance = 73;
   chart.querySelectorAll('[data-chart-dose], [data-chart-day], [data-chart-weight]').forEach((mark) => {
     const rect = mark.getBoundingClientRect();
     const dx = Math.max(rect.left - event.clientX, 0, event.clientX - rect.right);
@@ -515,11 +515,12 @@ function renderInsulinChart(period, doses, bounds) {
       const x = left + plotWidth * hour / 24 + offset * 7;
       const y = top + plotHeight * (1 - Number(dose.units) / maximum);
       const barHeight = top + plotHeight - y;
-      return `<g><title>${escapeHtml(dose.insulinType)} · ${formatNumber(dose.units)} U · ${formatTime(dose.takenAt)}</title><rect class="bar" data-chart-dose="${dose.id}" x="${x - 4.5}" y="${y}" width="9" height="${Math.max(2, barHeight)}" rx="3" fill="${colorByType.get(dose.insulinType)}" opacity=".9"/></g>`;
+      const selectedClass = state.chartSelection?.type === 'dose' && state.chartSelection.id === dose.id ? ' selected' : '';
+      return `<g><title>${escapeHtml(dose.insulinType)} · ${formatNumber(dose.units)} U · ${formatTime(dose.takenAt)}</title><rect class="bar${selectedClass}" data-chart-dose="${dose.id}" x="${x - 9}" y="${y}" width="18" height="${Math.max(4, barHeight)}" rx="5" fill="${colorByType.get(dose.insulinType)}" opacity=".9"/></g>`;
     }).join('');
   } else if (groups.length) {
     const step = plotWidth / groups.length;
-    const barWidth = Math.max(2, Math.min(13, step * .66));
+    const barWidth = Math.max(6, Math.min(24, step * .72));
     marks = groups.map((group, index) => {
       const x = left + index * step + (step - barWidth) / 2;
       let bottomY = top + plotHeight;
@@ -530,7 +531,8 @@ function renderInsulinChart(period, doses, bounds) {
         bottomY -= barHeight;
         return `<rect x="${x}" y="${bottomY}" width="${barWidth}" height="${barHeight}" fill="${colorByType.get(type)}"/>`;
       }).join('');
-      return `<g><title>${group.key} · ${formatNumber(group.total)} U total</title><rect class="bar" data-chart-day="${group.key}" x="${x - 2}" y="${top}" width="${barWidth + 4}" height="${plotHeight}" fill="transparent"/>${bars}</g>`;
+      const selectedClass = state.chartSelection?.type === 'day' && state.chartSelection.key === group.key ? ' selected' : '';
+      return `<g><title>${group.key} · ${formatNumber(group.total)} U total</title><rect class="bar chart-hit-target${selectedClass}" data-chart-day="${group.key}" x="${x - 2}" y="${top}" width="${barWidth + 4}" height="${plotHeight}" fill="transparent"/>${bars}</g>`;
     }).join('');
     const indexes = [...new Set([0, Math.floor((groups.length - 1) / 2), groups.length - 1])];
     labels = indexes.map((index) => {
@@ -541,7 +543,7 @@ function renderInsulinChart(period, doses, bounds) {
   }
   const noData = doses.length ? '' : `<text x="${width / 2}" y="${top + plotHeight / 2}" text-anchor="middle" fill="#71818c" font-size="11">No insulin entries in this range</text>`;
   const selected = state.chartSelection;
-  let detail = period === 'day' ? 'Tap near a bar to see its exact dose and time.' : 'Tap near a bar to see that day’s total.';
+  let detail = period === 'day' ? 'Swipe sideways, then tap a bar to inspect the dose.' : 'Swipe sideways, then tap a bar to inspect the day.';
   if (selected?.type === 'dose') {
     const dose = doses.find((item) => item.id === selected.id);
     if (dose) detail = `${dose.insulinType} · ${Number(dose.units).toFixed(2)} U · ${new Date(dose.takenAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`;
@@ -551,7 +553,8 @@ function renderInsulinChart(period, doses, bounds) {
     if (group && date) detail = `${formatDay(date, { dateStyle: 'medium' })} · ${group.total.toFixed(2)} U total`;
   }
   const legend = typeNames.map((type) => `<span class="legend-item"><span class="legend-swatch" style="background:${colorByType.get(type)}"></span>${escapeHtml(type)}</span>`).join('');
-  return `<section class="card chart-card"><div class="chart-summary"><div><span class="eyebrow">Period total</span><p class="chart-total">${total.toFixed(1)} <small style="font-size:12px;color:var(--muted)">U</small></p></div><p class="chart-footnote">Average ${average.toFixed(1)} U per calendar day</p></div><svg class="chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Insulin entries chart">${grid}${marks}${labels}${noData}</svg><p class="chart-detail">${escapeHtml(detail)}</p><div class="legend">${legend || `<span class="legend-item">No insulin types recorded</span>`}</div></section>`;
+  const chartClass = doses.length ? ' chart-svg has-marks' : ' chart-svg';
+  return `<section class="card chart-card"><div class="chart-summary"><div><span class="eyebrow">Period total</span><p class="chart-total">${total.toFixed(1)} <small style="font-size:12px;color:var(--muted)">U</small></p></div><p class="chart-footnote">Average ${average.toFixed(1)} U per calendar day</p></div><div class="chart-scroll"><svg class="${chartClass}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Insulin entries chart">${grid}${marks}${labels}${noData}</svg></div><p class="chart-detail">${escapeHtml(detail)}</p><div class="legend">${legend || `<span class="legend-item">No insulin types recorded</span>`}</div></section>`;
 }
 
 function renderWeightChart(records, bounds) {
@@ -583,14 +586,18 @@ function renderWeightChart(records, bounds) {
     const previous = sorted[index];
     return `<line class="trendline" x1="${xFor(previous.measuredAt)}" y1="${yFor(Number(previous.kilograms))}" x2="${xFor(record.measuredAt)}" y2="${yFor(Number(record.kilograms))}"/>`;
   }).join('');
-  const points = sorted.map((record) => `<g><title>${Number(record.kilograms).toFixed(2)} kg · ${new Date(record.measuredAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</title><circle class="point" data-chart-weight="${record.id}" cx="${xFor(record.measuredAt)}" cy="${yFor(Number(record.kilograms))}" r="5"/></g>`).join('');
+  const points = sorted.map((record) => {
+    const selectedClass = record.id === state.weightSelection ? ' selected' : '';
+    return `<g><title>${Number(record.kilograms).toFixed(2)} kg · ${new Date(record.measuredAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</title><circle class="point${selectedClass}" data-chart-weight="${record.id}" cx="${xFor(record.measuredAt)}" cy="${yFor(Number(record.kilograms))}" r="8"/></g>`;
+  }).join('');
   const startLabel = formatDay(bounds.start, { month: 'short', day: 'numeric' });
   const endLabel = formatDay(new Date(bounds.end.getTime() - 86400000), { month: 'short', day: 'numeric' });
   const selected = sorted.find((record) => record.id === state.weightSelection);
   const latest = sorted.at(-1);
   const change = sorted.length > 1 ? Number(sorted.at(-1).kilograms) - Number(sorted[0].kilograms) : null;
-  const detail = selected ? `${Number(selected.kilograms).toFixed(2)} kg · ${new Date(selected.measuredAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : records.length ? 'Tap near a point to see the exact measurement.' : 'No measurements in this period; blank days remain blank.';
-  return `<section class="card chart-card"><div class="weight-chart-summary"><div><span class="eyebrow">Latest in range</span><strong>${latest ? `${Number(latest.kilograms).toFixed(1)} kg` : '—'}</strong><span class="subhead">${latest ? formatDay(new Date(latest.measuredAt), { month: 'short', day: 'numeric' }) : 'No measurements'}</span></div><div><span class="eyebrow">Change</span><strong>${change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}`}</strong><span class="subhead">kg, first to last</span></div></div><svg class="chart-svg weight-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Weight measurements chart">${grid}${lines}${points}${svgText(left, height - 8, startLabel, 'start', 8)}${svgText(width - right, height - 8, endLabel, 'end', 8)}${records.length ? '' : `<text x="${width / 2}" y="${top + plotHeight / 2}" text-anchor="middle" fill="#71818c" font-size="11">No measurements recorded in this range</text>`}</svg><p class="chart-detail">${escapeHtml(detail)}</p><p class="section-copy" style="margin:0;text-align:center">Points show recorded measurements only. No values are interpolated.</p></section>`;
+  const detail = selected ? `${Number(selected.kilograms).toFixed(2)} kg · ${new Date(selected.measuredAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : records.length ? 'Swipe sideways, then tap a point to inspect it.' : 'No measurements in this period; blank days remain blank.';
+  const chartClass = records.length ? 'chart-svg weight-chart has-marks' : 'chart-svg weight-chart';
+  return `<section class="card chart-card"><div class="weight-chart-summary"><div><span class="eyebrow">Latest in range</span><strong>${latest ? `${Number(latest.kilograms).toFixed(1)} kg` : '—'}</strong><span class="subhead">${latest ? formatDay(new Date(latest.measuredAt), { month: 'short', day: 'numeric' }) : 'No measurements'}</span></div><div><span class="eyebrow">Change</span><strong>${change === null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(1)}`}</strong><span class="subhead">kg, first to last</span></div></div><div class="chart-scroll"><svg class="${chartClass}" viewBox="0 0 ${width} ${height}" role="img" aria-label="Weight measurements chart">${grid}${lines}${points}${svgText(left, height - 8, startLabel, 'start', 8)}${svgText(width - right, height - 8, endLabel, 'end', 8)}${records.length ? '' : `<text x="${width / 2}" y="${top + plotHeight / 2}" text-anchor="middle" fill="#71818c" font-size="11">No measurements recorded in this range</text>`}</svg></div><p class="chart-detail">${escapeHtml(detail)}</p><p class="section-copy" style="margin:0;text-align:center">Points show recorded measurements only. No values are interpolated.</p></section>`;
 }
 
 function renderCharts() {
@@ -636,6 +643,30 @@ function render() {
   const pages = { dashboard: renderDashboard, insulin: renderInsulin, weight: renderWeight, charts: renderCharts, history: renderHistory, settings: renderSettings };
   app.innerHTML = (pages[state.view] || renderDashboard)();
   document.title = `${state.view === 'dashboard' ? 'Dashboard' : state.view.charAt(0).toUpperCase() + state.view.slice(1)} · Insulin Intake`;
+  if (state.view === 'charts') {
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.chart-scroll').forEach((scroll) => {
+        const chart = scroll.querySelector('.chart-svg');
+        if (!chart) return;
+        const isWeight = chart?.classList.contains('weight-chart');
+        let mark = null;
+        if (isWeight && state.weightSelection !== null) {
+          mark = chart.querySelector(`[data-chart-weight="${state.weightSelection}"]`);
+        } else if (!isWeight && state.chartSelection?.type === 'dose') {
+          mark = chart.querySelector(`[data-chart-dose="${state.chartSelection.id}"]`);
+        } else if (!isWeight && state.chartSelection?.type === 'day') {
+          mark = chart.querySelector(`[data-chart-day="${state.chartSelection.key}"]`);
+        }
+        const marks = chart?.querySelectorAll('[data-chart-dose], [data-chart-day], [data-chart-weight]');
+        mark ||= marks?.[marks.length - 1];
+        if (!mark) return;
+        const markRect = mark.getBoundingClientRect();
+        const scrollRect = scroll.getBoundingClientRect();
+        const markCenter = markRect.left - scrollRect.left + scroll.scrollLeft + markRect.width / 2;
+        scroll.scrollLeft = Math.max(0, markCenter - scroll.clientWidth / 2);
+      });
+    });
+  }
   if (state.view === 'settings') void renderBackupSnapshots();
 }
 
@@ -954,9 +985,10 @@ async function restoreCsv(file) {
 }
 
 document.addEventListener('click', (event) => {
-  const directTarget = event.target.closest('[data-nav], [data-action], [data-chart-dose], [data-chart-day], [data-chart-weight]');
+  const directTarget = event.target.closest('[data-nav], [data-action]');
   const chart = event.target.closest('.chart-svg');
-  const target = directTarget || (chart ? nearestChartMark(event, chart) : null);
+  const markTarget = event.target.closest('[data-chart-dose], [data-chart-day], [data-chart-weight]');
+  const target = directTarget || (chart ? nearestChartMark(event, chart) || markTarget : null);
   if (!target) return;
   if (target.dataset.nav) {
     event.preventDefault();
